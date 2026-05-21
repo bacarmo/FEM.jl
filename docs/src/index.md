@@ -2,13 +2,4 @@
 CurrentModule = FEM
 ```
 
-# FEM
-
-Documentation for [FEM](https://github.com/bacarmo/FEM.jl).
-
-```@index
-```
-
-```@autodocs
-Modules = [FEM]
-```
+This package provides basic functionalities for FEM codes.

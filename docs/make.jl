@@ -1,23 +1,24 @@
 using FEM
 using Documenter
 
-DocMeta.setdocmeta!(FEM, :DocTestSetup, :(using FEM); recursive=true)
+DocMeta.setdocmeta!(FEM, :DocTestSetup, :(using FEM); recursive = true)
 
 makedocs(;
-    modules=[FEM],
-    authors="Bruno Alves do Carmo",
-    sitename="FEM.jl",
-    format=Documenter.HTML(;
-        canonical="https://bacarmo.github.io/FEM.jl",
-        edit_link="main",
-        assets=String[],
+    modules = [FEM],
+    authors = "Bruno Alves do Carmo",
+    sitename = "FEM.jl",
+    format = Documenter.HTML(;
+        canonical = "https://bacarmo.github.io/FEM.jl",
+        edit_link = "main",
+        assets = String[]
     ),
-    pages=[
+    pages = [
         "Home" => "index.md",
-    ],
+        "API" => "api.md"
+    ]
 )
 
 deploydocs(;
-    repo="github.com/bacarmo/FEM.jl",
-    devbranch="main",
+    repo = "github.com/bacarmo/FEM.jl",
+    devbranch = "main"
 )

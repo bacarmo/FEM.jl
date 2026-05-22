@@ -1,10 +1,14 @@
 name = "FEM"
 uuid = "a6aaf273-c702-4f9b-ac0e-4c7ed6782468"
-authors = ["Bruno Alves do Carmo"]
 version = "0.1.0"
+authors = ["Bruno Alves do Carmo"]
 
 [workspace]
 projects = ["test", "docs"]
 
+[deps]
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
 [compat]
+StaticArrays = "1.9.18"
 julia = "1.12"

@@ -1,25 +1,25 @@
 """
-    AbstractFEBasis
+    AbstractFEBasis{Deg, Dim}
 
-Abstract supertype for finite element basis.
+Abstract supertype for finite element basis functions parametrised by polynomial degree `Deg` and spatial dimension `Dim`.
 
 Concrete subtypes: [`Lagrange{Deg, Dim}`](@ref), [`Hermite{Deg, Dim}`](@ref).
 """
-abstract type AbstractFEBasis end
+abstract type AbstractFEBasis{Deg, Dim} end
 
 """
-    Lagrange{Deg, Dim} <: AbstractFEBasis
+    Lagrange{Deg, Dim} <: AbstractFEBasis{Deg, Dim}
 
 Lagrange basis of degree `Deg` in spatial dimension `Dim`.
 """
-struct Lagrange{Deg, Dim} <: AbstractFEBasis end
+struct Lagrange{Deg, Dim} <: AbstractFEBasis{Deg, Dim} end
 
 """
-    Hermite{Deg, Dim} <: AbstractFEBasis
+    Hermite{Deg, Dim} <: AbstractFEBasis{Deg, Dim}
 
 Hermite basis of degree `Deg` in spatial dimension `Dim`.
 """
-struct Hermite{Deg, Dim} <: AbstractFEBasis end
+struct Hermite{Deg, Dim} <: AbstractFEBasis{Deg, Dim} end
 
 # ============================================================================
 # LAGRANGE 1D - Reference element [-1, 1]

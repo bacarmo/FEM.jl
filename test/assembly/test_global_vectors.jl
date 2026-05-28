@@ -217,3 +217,24 @@ end
     @test G ≈ G_expected
     @test alloc == 0
 end
+
+@testitem "assembly_∫basis: Lagrange{Deg, 2}, AllSides()" begin
+    using FEM: assembly_∫basis, Lagrange, DOFMap, AllSides
+
+    # Setup
+    T = Float64
+    bc = AllSides()
+    nel_per_dim = (4, 3)
+    element_side_lengths = one(T) ./ nel_per_dim
+    Δx, Δy = element_side_lengths
+    jacobian = Δx * Δy / 4
+
+    # Tests
+    @testset "Deg = 1" begin
+        fe = Lagrange{1, 2}()
+        dof_map = DOFMap(fe, bc, nel_per_dim)
+        b = assembly_∫basis(fe, element_side_lengths, dof_map)
+
+        @test b ≈ fill(jacobian * 4, dof_map.m)
+    end
+end

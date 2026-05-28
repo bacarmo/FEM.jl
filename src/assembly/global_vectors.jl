@@ -221,3 +221,40 @@ function assembly_nonlinearity_G!(
 
     return nothing
 end
+
+"""
+    assembly_∫basis(fe, element_side_lengths, dof_map)
+ 
+Assemble the global integral vector
+```math
+b_i = \\int_Ω φᵢ(x, y) dΩ, \\quad i = 1, \\ldots, m,
+```
+where ``\\{\\varphi_i\\}`` are the global basis functions associated with the free DOFs of `dof_map`.
+
+Returns a `Vector{T}` of length `m = dof_map.m`.
+ 
+# Arguments
+- `fe::AbstractFEBasis{Deg, 2}`: FE basis with polynomial degree `Deg` and spatial dimension `2` (e.g., `Lagrange{1, 2}()`)
+- `element_side_lengths::NTuple{2, T}`: Side lengths of the (axis-aligned) element along each spatial dimension.
+- `dof_map`: DOF mapping (`EQoLG` connectivity, `m` free DOFs)
+"""
+function assembly_∫basis(
+        fe::AbstractFEBasis{Deg, 2},
+        element_side_lengths::NTuple{2, T},
+        dof_map::DOFMap
+) where {T, Deg}
+    b_local = assembly_local_∫basis(fe, element_side_lengths)
+    EQoLG = dof_map.EQoLG
+    m = dof_map.m
+    b = zeros(T, m)
+
+    for e in eachindex(EQoLG)
+        eq = EQoLG[e]
+        for a in eachindex(b_local)
+            ia = eq[a]
+            ia <= m && (b[ia] += b_local[a])
+        end
+    end
+
+    return b
+end

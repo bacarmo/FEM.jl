@@ -3,7 +3,7 @@ module FEM
 using StaticArrays: SVector, SMatrix
 using GaussQuadrature: legendre
 using SparseArrays: sparse
-using LinearAlgebra: Symmetric, lmul!
+using LinearAlgebra: Symmetric, lmul!, ldiv!
 
 # Exports
 export Lagrange, Hermite
@@ -15,4 +15,6 @@ include("assembly/local_matrices.jl")
 include("assembly/global_matrices.jl")
 include("assembly/local_vectors.jl")
 include("assembly/global_vectors.jl")
+include("projection.jl")
+include("error_norms.jl")
 end

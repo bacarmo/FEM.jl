@@ -2,7 +2,7 @@ module FEM
 
 using StaticArrays: SVector, SMatrix
 using GaussQuadrature: legendre
-using SparseArrays: sparse
+using SparseArrays: sparse, nnz, nzrange, SparseMatrixCSC
 using LinearAlgebra: Symmetric, lmul!, ldiv!
 
 # Exports
@@ -17,4 +17,5 @@ include("assembly/local_vectors.jl")
 include("assembly/global_vectors.jl")
 include("projection.jl")
 include("error_norms.jl")
+include("utilities.jl")
 end

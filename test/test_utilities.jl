@@ -61,6 +61,36 @@ end
     end
 end
 
+@testitem "build_upper_to_full_maps22: size(M)=5x5, size(U)=3x3" begin
+    using SparseArrays: sparse, nnz, nzrange
+    using LinearAlgebra: Symmetric
+    using FEM: build_upper_to_full_maps22
+
+    # M is 5×5 and M₂₂upper the bottom-right 3×3 block
+    M = sparse([1.1 1.2 3.1 3.3 3.5;
+                1.2 1.3 3.2 3.4 3.6;
+                2.1 2.4 4.1 4.2 4.3;
+                2.2 2.5 4.2 4.4 4.5;
+                2.3 2.6 4.3 4.5 4.6])
+    U = sparse([4.1 4.2 4.3;
+                0.0 4.4 4.5;
+                0.0 0.0 4.6])
+    M₂₂upper = Symmetric(U, :U)
+
+    direct, mirror = build_upper_to_full_maps22(M, M₂₂upper)
+
+    @test length(direct) == nnz(U)
+    @test length(mirror) == nnz(U)
+    m₁ = 2
+    for j in 1:size(U, 2)
+        for kU in nzrange(U, j)
+            i = U.rowval[kU]
+            @test M.rowval[direct[kU]] == i + m₁
+            @test M.rowval[mirror[kU]] == j + m₁
+        end
+    end
+end
+
 # =============================================================================
 # scatter_symmetric!
 # =============================================================================
@@ -85,5 +115,31 @@ end
                   20.0 40.0 50.0 0.0;
                   30.0 50.0 60.0 0.0;
                   0.0 0.0 0.0 7.0]
+    @test Matrix(M) ≈ M_expected
+end
+
+@testitem "scatter_symmetric!:  size(M)=5x5, size(U)=3x3" begin
+    using SparseArrays: sparse, nnz, nzrange
+    using LinearAlgebra: Symmetric
+    using FEM: build_upper_to_full_maps22, scatter_symmetric!
+
+    M = sparse([1.1 1.2 3.1 3.3 3.5;
+                1.2 1.3 3.2 3.4 3.6;
+                2.1 2.4 4.1 4.2 4.3;
+                2.2 2.5 4.2 4.4 4.5;
+                2.3 2.6 4.3 4.5 4.6])
+    U = sparse([0.1 0.2 0.3;
+                0.0 0.4 0.5;
+                0.0 0.0 0.6])
+    M₂₂upper = Symmetric(U, :U)
+    direct, mirror = build_upper_to_full_maps22(M, M₂₂upper)
+
+    scatter_symmetric!(M, M₂₂upper, direct, mirror)
+
+    M_expected = sparse([1.1 1.2 3.1 3.3 3.5;
+                         1.2 1.3 3.2 3.4 3.6;
+                         2.1 2.4 0.1 0.2 0.3;
+                         2.2 2.5 0.2 0.4 0.5;
+                         2.3 2.6 0.3 0.5 0.6])
     @test Matrix(M) ≈ M_expected
 end

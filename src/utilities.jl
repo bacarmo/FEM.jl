@@ -47,6 +47,55 @@ function build_upper_to_full_maps11(
     return direct, mirror
 end
 
+"""
+    build_upper_to_full_maps22(M, M₂₂upper) -> (Vector{I}, Vector{I})
+
+Precompute positional index maps from the upper-triangular nonzeros of `M₂₂upper.data` into `M.nzval`, 
+enabling efficient in-place assembly via [`scatter_symmetric!`](@ref).
+
+The suffix `22` denotes the `(2,2)` block of the matrix `M = [M₁₁ M₁₂;M₂₁ M₂₂]`.
+`M₂₂upper` wraps the upper triangle of the symmetric submatrix `M₂₂ = M[(m₁+1):(m₁+m₂),(m₁+1):(m₁+m₂)]`.
+
+# Arguments
+- `M::SparseMatrixCSC{T,I}`: sparse matrix [M₁₁ M₁₂;M₂₁ M₂₂]`
+- `M₂₂upper::Symmetric{T,SparseMatrixCSC{T,I}}`: upper-triangular storage of the `(2,2)` submatrix.
+
+# Returns
+- `direct::Vector{I}`: `direct[k]` is the index in `M.nzval` of entry `M[i+m₁,j+m₁]`, where `(i,j)` is the `k`-th nonzero of `M₂₂upper.data`.
+- `mirror::Vector{I}`: `mirror[k]` is the index in `M.nzval` of the transposed entry `M[j+m₁,i+m₁]`.  Equals `direct[k]` on the diagonal.
+"""
+function build_upper_to_full_maps22(
+        M::SparseMatrixCSC{T, I},
+        M₂₂upper::Symmetric{T, SparseMatrixCSC{T, I}}
+) where {T <: AbstractFloat, I <: Integer}
+    m₂ = size(M₂₂upper, 1)
+    m₁ = size(M, 1) - m₂
+
+    n = nnz(M₂₂upper.data)
+    map_direct = Vector{Int}(undef, n)
+    map_mirror = Vector{Int}(undef, n)
+    for j in 1:m₂
+        j_m₁ = j + m₁
+        for k in nzrange(M₂₂upper.data, j)
+            i = M₂₂upper.data.rowval[k]
+            i_m₁ = i + m₁
+            for kM in nzrange(M, j_m₁)  # find M[i+m₁, j+m₁]
+                if M.rowval[kM] == i_m₁
+                    map_direct[k] = kM
+                    break
+                end
+            end
+            for kᵀM in nzrange(M, i_m₁) # find M[j+m₁, i+m₁]  (symmetric entry)
+                if M.rowval[kᵀM] == j_m₁
+                    map_mirror[k] = kᵀM
+                    break
+                end
+            end
+        end
+    end
+    return map_direct, map_mirror
+end
+
 # ==============================================================================
 # scatter_symmetric!
 # ==============================================================================

@@ -108,3 +108,54 @@ function projection_H01!(
 
     return nothing
 end
+
+"""
+    projection_L2(u, fe, nel_per_dim, pmin, pmax, dof_map, factorized_lhs_matrix)
+
+Compute the L² projection of a function onto a 1D FE subspace.
+
+Solves: find uₕ ∈ Vₕ such that (uₕ, v) = (u, v) for all v ∈ Vₕ.
+
+# Arguments
+- `u`: Callable `x -> T`
+- `fe`: FE basis with polynomial degree `Deg` and spatial dimension `1` (e.g., `Lagrange{3, 1}()`)
+- `nel_per_dim`: Number of elements along each spatial dimension
+- `pmin`: Domain left point `(xmin,)`
+- `pmax`: Domain right point `(xmax,)`
+- `dof_map`: DOF mapping (`EQoLG` connectivity, `m` free DOFs)
+- `factorized_lhs_matrix`: Pre-factorized stiffness matrix
+
+# Returns
+- `uₕ_coefs`: FE coefficient vector for `uₕ` (length `dof_map.m`)
+"""
+function projection_L2(
+        u::F1,
+        fe::AbstractFEBasis{Deg, 1},
+        nel_per_dim::NTuple{1, Integer},
+        pmin::NTuple{1, T},
+        pmax::NTuple{1, T},
+        dof_map::DOFMap,
+        factorized_lhs_matrix::F2
+) where {F1, F2, Deg, T}
+    element_side_lengths = (pmax .- pmin) ./ nel_per_dim
+    Δx = element_side_lengths[1]
+
+    Npg = 2 * (Deg + 1)
+    P_raw, W_raw = legendre(Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+
+    xP = (Δx / 2) .* (P .+ 1) .+ pmin[1]
+    ϕP = SVector{Npg}([basis_functions(fe, P[i]) for i in 1:Npg])
+    W_ϕP = SVector{Npg}([W[i] * ϕP[i] for i in 1:Npg])
+
+    uₕ_coefs = zeros(T, dof_map.m)
+    rhs_vec = zeros(T, dof_map.m)
+
+    scale = Δx/2
+    assembly_rhs_1d!(rhs_vec, u, scale, W_ϕP, dof_map, Δx, xP)
+
+    ldiv!(uₕ_coefs, factorized_lhs_matrix, rhs_vec)
+
+    return uₕ_coefs
+end

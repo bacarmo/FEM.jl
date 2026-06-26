@@ -95,3 +95,39 @@ end
         @test uₕ_coefs ≈ uₕ_coefs_expected
     end
 end
+
+@testitem "projection_L2: AllSides(), u=(x²-x), Lagrange{Deg, 1}()" begin
+    using FEM: projection_L2, Lagrange, AllSides, DOFMap, assembly_local_matrix_ϕxϕ,
+               assembly_global_matrix
+    using LinearAlgebra: Symmetric, cholesky
+
+    # Setup
+    bc = AllSides()
+    nel_per_dim = (4,)
+    pmin = (0.0,)
+    pmax = (1.0,)
+    element_side_lengths = (pmax .- pmin) ./ nel_per_dim
+    Δx = element_side_lengths[1]
+
+    u(x) = x * (x - 1)
+
+    @testset "Deg = $Deg" for Deg in (2, 3)
+        fe = Lagrange{Deg, 1}()
+        dof_map = DOFMap(fe, bc, nel_per_dim)
+
+        Me = Symmetric(assembly_local_matrix_ϕxϕ(fe, element_side_lengths))
+        M = assembly_global_matrix(Me, dof_map)
+        factorized_lhs_matrix = cholesky(M)
+
+        # Compute
+        uₕ_coefs = projection_L2(
+            u, fe, nel_per_dim, pmin, pmax, dof_map, factorized_lhs_matrix)
+
+        # Expected solution
+        xs = (Δx / Deg):(Δx / Deg):(1 - Δx / Deg)
+        uₕ_coefs_expected = [u(x) for x in xs]
+
+        # Test 
+        @test uₕ_coefs ≈ uₕ_coefs_expected
+    end
+end

@@ -159,3 +159,40 @@ function projection_L2(
 
     return uₕ_coefs
 end
+
+"""
+    projection_L2!(uₕ_coefs, u, element_side_lengths, dof_map, factorized_lhs_matrix, xP, W_ϕP, vec)
+
+Compute the L² projection of a function onto a 1D FE subspace.
+
+Solves: find uₕ ∈ Vₕ such that (uₕ, v) = (u, v) for all v ∈ Vₕ.
+
+# Arguments
+- `uₕ_coefs`: FE coefficient vector for `uₕ` (overwritten, length `dof_map.m`)
+- `u`: Callable `x -> T`
+- `element_side_lengths`: Side lengths of the axis-aligned element along each spatial dimension
+- `dof_map`: DOF mapping (`EQoLG` connectivity, `m` free DOFs)
+- `factorized_lhs_matrix`: Pre-factorized stiffness matrix
+- `xP`: Precomputed fixed part of the physical quadrature points; `xP[i] = (Δx/2)*P[i] + xmin`
+- `W_ϕP`: `W_ϕP[i][a] = W[i] * ϕₐ(P[i])`
+- `vec`: Work vector (overwritten, length `dof_map.m`)
+"""
+function projection_L2!(
+        uₕ_coefs::Vector{T},
+        u::F1,
+        element_side_lengths::NTuple{1, T},
+        dof_map::DOFMap,
+        factorized_lhs_matrix::F2,
+        xP::SVector{Npg, T},
+        W_ϕP::SVector{Npg, SVector{nb, T}},
+        vec::Vector{T}
+) where {T, F1, F2, Npg, nb}
+    Δx = element_side_lengths[1]
+
+    scale = Δx/2
+    assembly_rhs_1d!(vec, u, scale, W_ϕP, dof_map, Δx, xP)
+
+    ldiv!(uₕ_coefs, factorized_lhs_matrix, vec)
+
+    return nothing
+end

@@ -258,3 +258,16 @@ end
     @test dof_map.EQoLG[3] == [6, 7, 8, 9]
     @test dof_map.EQoLG[4] == [9, 10, 11, 12]
 end
+
+@testitem "DOFMap: Hermite{3, 1}(), AllSides()" begin
+    using FEM: DOFMap, Hermite, AllSides
+
+    dof_map = DOFMap(Hermite{3, 1}(), AllSides(), (4,))
+
+    @test dof_map.m == 6
+    @test length(dof_map.EQoLG) == 4
+    @test dof_map.EQoLG[1] == [7, 7, 1, 2]
+    @test dof_map.EQoLG[2] == [1, 2, 3, 4]
+    @test dof_map.EQoLG[3] == [3, 4, 5, 6]
+    @test dof_map.EQoLG[4] == [5, 6, 7, 7]
+end

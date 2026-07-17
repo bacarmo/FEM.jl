@@ -164,6 +164,19 @@ function build_LG(::Lagrange{Deg, 2}, nel_per_dim::NTuple{2, I}) where {I <: Int
     return LG
 end
 
+function build_LG(::Hermite{3, 1}, nel_per_dim::NTuple{1, I}) where {I <: Integer}
+    Nx = nel_per_dim[1]
+    num_local_dof = 4
+    LG = Vector{SVector{num_local_dof, I}}(undef, Nx)
+
+    for e in 1:Nx
+        start = 2*e-1
+        LG[e] = SVector{num_local_dof, I}(start, start+1, start+2, start+3)
+    end
+
+    return LG
+end
+
 # ================================================================
 # EQ
 # ================================================================
@@ -246,6 +259,28 @@ function build_EQ(
             @inbounds EQ[cst1 + i] = I(cst2 + i)
         end
     end
+
+    return EQ, m
+end
+
+function build_EQ(
+        ::Hermite{3, 1},
+        ::AllSides,
+        nel_per_dim::NTuple{1, I}) where {I <: Integer}
+    Nx = nel_per_dim[1]
+    num_dof = 2*(Nx+1)
+    m = I(num_dof - 4)
+    sentinel = m + one(I)
+
+    EQ = Vector{I}(undef, num_dof)
+
+    EQ[1] = sentinel
+    EQ[2] = sentinel
+    for i in 3:(num_dof - 2)
+        EQ[i] = I(i - 2)
+    end
+    EQ[num_dof - 1] = sentinel
+    EQ[num_dof] = sentinel
 
     return EQ, m
 end

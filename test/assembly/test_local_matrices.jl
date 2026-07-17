@@ -116,6 +116,31 @@ end
     end
 end
 
+@testitem "assembly_local_matrix_ΔϕxΔϕ: Hermite{3, 1}" begin
+    using FEM: assembly_local_matrix_ΔϕxΔϕ, Hermite
+    using StaticArrays: SMatrix
+
+    @testset "Type $T" for T in (Float64, Float32)
+        # Setup
+        fe = Hermite{3, 1}()
+        Δx = T(0.5)
+        element_side_lengths = (Δx,)
+
+        # Compute
+        Ae = assembly_local_matrix_ΔϕxΔϕ(fe, element_side_lengths)
+
+        # Expected solution
+        Ae_expected = (4/Δx^3) * SMatrix{4, 4}([3 3 -3 3;
+                                                3 4 -3 2;
+                                                -3 -3 3 -3;
+                                                3 2 -3 4])
+
+        # Test
+        @test Ae ≈ Ae_expected
+        @test Ae isa SMatrix{4, 4, T, 16}
+    end
+end
+
 @testitem "assembly_local_matrix_DG!: Lagrange{1, 1}(), AllSides(), ∂ₛg(x,v) = 1" begin
     using FEM: assembly_local_matrix_DG!, assembly_local_matrix_ϕxϕ, Lagrange, DOFMap,
                AllSides, basis_functions

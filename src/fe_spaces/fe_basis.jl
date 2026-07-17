@@ -224,6 +224,28 @@ Derivatives of cubic Hermite basis functions with respect to ξ.
     )
 end
 
+"""
+    basis_functions_second_derivatives(::Hermite{3, 1}, ξ)
+
+Second derivatives of cubic Hermite basis functions with respect to ξ.
+
+# Arguments
+- `ξ::T`: Coordinate in the reference element [-1, 1]
+
+# Returns
+- `SVector{4,T}`: Second derivatives [d²H₁/dξ², d²H₁'/dξ², d²H₂/dξ², d²H₂'/dξ²]
+"""
+@inline function basis_functions_second_derivatives(::Hermite{3, 1}, ξ::T) where {T <: Real}
+    c1 = T(1.5)
+    c2 = T(0.5)
+    SVector(
+        c1 * ξ,
+        c1 * ξ - c2,
+        -c1 * ξ,
+        c1 * ξ + c2
+    )
+end
+
 # ============================================================================
 # HERMITE 2D - Reference element [-1,1] × [-1,1]
 # ============================================================================

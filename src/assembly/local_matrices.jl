@@ -161,6 +161,44 @@ function assembly_local_matrix_ϕxc∇ϕ(
 end
 
 """
+    assembly_local_matrix_ΔϕxΔϕ(fe::AbstractFEBasis{Deg, Dim}, element_side_lengths::NTuple{Dim, T})
+
+Assemble the local stiffness matrix ∫_{Ωₑ} Δϕₐᵉ · Δϕᵦᵉ dx for an arbitrary element Ωₑ.
+
+# Arguments
+- `fe::AbstractFEBasis{Deg, Dim}`: FE basis with polynomial degree `Deg` and spatial dimension `Dim` (e.g., `Lagrange{3, 1}()`)
+- `element_side_lengths::NTuple{Dim, T}`: Side lengths of the (axis-aligned) element along each spatial dimension. The type `T` controls the floating-point precision.
+
+# Returns
+- `SMatrix{nb, nb, T, nb*nb}`: Local stiffness matrix where `nb` is the number of local DOF
+"""
+function assembly_local_matrix_ΔϕxΔϕ end
+
+function assembly_local_matrix_ΔϕxΔϕ(
+        fe::AbstractFEBasis{Deg, 1},
+        element_side_lengths::NTuple{1, T}) where {Deg, T}
+    Δx = element_side_lengths[1]
+    Npg = Deg + 1
+    P, W = legendre(T, Npg)
+    ΔϕP = ntuple(i -> basis_functions_second_derivatives(fe, P[i]), Npg)
+
+    nb = length(ΔϕP[1])
+    A = zeros(T, nb, nb)
+    scale = 8 / Δx^3  # (2 / Δx)^4 * (Δx / 2)
+    w_scale = SVector{Npg, T}(scale * W)
+
+    for i in 1:Npg
+        ΔϕPᵢ = ΔϕP[i]
+        for b in 1:nb, a in 1:nb
+
+            A[a, b] += w_scale[i] * ΔϕPᵢ[a] * ΔϕPᵢ[b]
+        end
+    end
+
+    return SMatrix{nb, nb, T, nb * nb}(A)
+end
+
+"""
     assembly_local_matrix_DG!(DG, ∂ₛg, v, m, eq, xeP, ϕP, W_ϕPϕP)
 
 DGₐᵦ = ∫ ϕₐ(ξ) * ϕᵦ(ξ) * ∂ₛg(x(ξ), Vₕ(xᵉ(ξ))) dx over Ω = (-1,1), with Vₕ(xᵉ(ξ)) = Σ v[eq[j]] ϕⱼ(ξ).

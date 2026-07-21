@@ -196,3 +196,89 @@ function projection_L2!(
 
     return nothing
 end
+
+"""
+    projection_H02(u, ∇u, Δu, a, fe, nel_per_dim, pmin, pmax, dof_map, M, K, A)
+
+Compute the H₀² projection of a function onto a 1D FE subspace.
+
+Solves: find `uₕ ∈ Vₕ` such that
+
+    a₁*(uₕ, v) + a₂*(∇uₕ, ∇v) + a₃*(Δuₕ, Δv) = a₁*(u, v) + a₂*(∇u, ∇v) + a₃*(Δu, Δv)
+
+for all `v ∈ Vₕ`.
+
+# Arguments
+- `u`: Callable `x -> T`
+- `∇u`: Callable `x -> T` for `du/dx`
+- `Δu`: Callable `x -> T` for `d²u/dx²`
+- `a`: Tuple `(a₁, a₂, a₃)`
+- `fe`: FE basis with polynomial degree `Deg` and spatial dimension 1 (e.g., `Hermite{3, 1}()`)
+- `nel_per_dim`: Number of elements along each spatial dimension.
+- `pmin`: Domain lower-left corner
+- `pmax`: Domain upper-right corner
+- `dof_map`: DOF mapping (`EQoLG` connectivity, `m` free DOFs)
+- `M`: matrix `(φᵢ, φⱼ)`
+- `K`: matrix `(∇φᵢ, ∇φⱼ)`
+- `A`: matrix `(Δφᵢ, Δφⱼ)`
+
+`M`, `K`, and `A` must share the same sparsity pattern (same `nzval` ordering).
+
+# Returns
+- `uₕ_coefs::Vector{T}`: FE coefficient vector for `uₕ` (length `dof_map.m`)
+"""
+function projection_H02(
+        u::F1,
+        ∇u::F2,
+        Δu::F3,
+        a::NTuple{3, T},
+        fe::AbstractFEBasis{Deg, 1},
+        nel_per_dim::NTuple{1, I},
+        pmin::NTuple{1, T},
+        pmax::NTuple{1, T},
+        dof_map::DOFMap,
+        M::Symmetric{T, SparseMatrixCSC{T, I}},
+        K::Symmetric{T, SparseMatrixCSC{T, I}},
+        A::Symmetric{T, SparseMatrixCSC{T, I}}
+) where {T, Deg, I, F1, F2, F3}
+    a₁, a₂, a₃ = a
+
+    # Assemble lhs matrix: R = a₁*M + a₂*K + a₃*A (M, K, A share sparsity pattern)
+    R = copy(M)
+    @. R.data.nzval = muladd(a₁, M.data.nzval, muladd(a₂, K.data.nzval, a₃ * A.data.nzval))
+
+    # Quadrature setup
+    element_side_lengths = (pmax .- pmin) ./ nel_per_dim
+    Δx = element_side_lengths[1]
+
+    Npg = 2 * (Deg + 1)
+    P_raw, W_raw = legendre(T, Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+
+    xP = (Δx / 2) .* (P .+ 1) .+ pmin[1]
+
+    ϕP = SVector{Npg}([basis_functions(fe, P[i]) for i in 1:Npg])
+    W_ϕP = SVector{Npg}([W[i] * ϕP[i] for i in 1:Npg])
+
+    ϕₓP = SVector{Npg}([basis_functions_derivatives(fe, P[i]) for i in 1:Npg])
+    W_ϕₓP = SVector{Npg}([W[i] * ϕₓP[i] for i in 1:Npg])
+
+    ϕₓₓP = SVector{Npg}([basis_functions_second_derivatives(fe, P[i]) for i in 1:Npg])
+    W_ϕₓₓP = SVector{Npg}([W[i] * ϕₓₓP[i] for i in 1:Npg])
+
+    # Assemble rhs vector: a₁*(u,v) + a₂*(∇u,∇v) + a₃*(Δu,Δv)
+    vec1 = zeros(T, dof_map.m)
+    assembly_rhs_1d!(vec1, u, a₁ * Δx / 2, W_ϕP, dof_map, Δx, xP)
+
+    vec2 = zeros(T, dof_map.m)
+    assembly_rhs_1d!(vec2, ∇u, a₂, W_ϕₓP, dof_map, Δx, xP)  # a₂ * (2/Δx) * (Δx/2)
+
+    vec3 = zeros(T, dof_map.m)
+    assembly_rhs_1d!(vec3, Δu, a₃ * 2 / Δx, W_ϕₓₓP, dof_map, Δx, xP)  # a₃ * (2/Δx)² * (Δx/2)
+
+    @. vec1 += vec2 + vec3
+
+    # Solve linear system
+    return R \ vec1
+end

@@ -180,3 +180,49 @@ end
         @test uₕ_coefs ≈ uₕ_coefs_expected
     end
 end
+
+@testitem "projection_H02: AllSides(), u=16|x-1/2|³-12|x-1/2|²+1, Hermite{3, 1}()" begin
+    using FEM: projection_H02, Hermite, AllSides, DOFMap, assembly_local_matrix_ϕxϕ,
+               assembly_local_matrix_∇ϕx∇ϕ, assembly_local_matrix_ΔϕxΔϕ,
+               assembly_global_matrix
+    using LinearAlgebra: Symmetric
+
+    # Setup
+    bc = AllSides()
+    nel_per_dim = (4,)
+    pmin = (0.0,)
+    pmax = (1.0,)
+    element_side_lengths = (pmax .- pmin) ./ nel_per_dim
+    Δx = element_side_lengths[1]
+
+    u(x) = (x<=0.5)*(-16*x^3+12*x^2) + (x>0.5)*(16*x^3-36*x^2+24*x-4)
+    ∇u(x) = (x<=0.5)*(-48*x^2+24*x) + (x>0.5)*(48*x^2-72*x+24)
+    Δu(x) = (x<=0.5)*(-96*x+24) + (x>0.5)*(96*x-72)
+
+    fe = Hermite{3, 1}()
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+
+    Me = Symmetric(assembly_local_matrix_ϕxϕ(fe, element_side_lengths))
+    Ke = Symmetric(assembly_local_matrix_∇ϕx∇ϕ(fe, element_side_lengths))
+    Ae = Symmetric(assembly_local_matrix_ΔϕxΔϕ(fe, element_side_lengths))
+
+    M = assembly_global_matrix(Me, dof_map)
+    K = assembly_global_matrix(Ke, dof_map)
+    A = assembly_global_matrix(Ae, dof_map)
+
+    # Compute
+    uₕ_coefs = projection_H02(
+        u, ∇u, Δu, (1.0, 1.0, 1.0), fe, nel_per_dim,
+        pmin, pmax, dof_map, M, K, A)
+
+    # Expected solution
+    xs = Δx:Δx:(1 - Δx)
+    uₕ_coefs_expected = zeros(2*length(xs))
+    for i in 1:length(xs)
+        uₕ_coefs_expected[2 * i - 1] = u(xs[i])
+        uₕ_coefs_expected[2 * i] = (Δx / 2) * ∇u(xs[i])
+    end
+
+    # Test 
+    @test uₕ_coefs ≈ uₕ_coefs_expected
+end

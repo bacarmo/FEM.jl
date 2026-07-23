@@ -170,3 +170,115 @@ end
     @test L2_err ≈ L2_err_expected
     @test (@allocated error_L2(u, uₕ_coefs, dof_map, Δx, W, xP, ϕP)) == 0
 end
+
+@testitem "norm_H01²: AllSides(), Lagrange{1, 1}(), uₕ=ϕᵢ" begin
+    using FEM: norm_H01², Lagrange, AllSides, DOFMap, basis_functions_derivatives
+    using GaussQuadrature: legendre
+    using StaticArrays: SVector
+
+    # Setup
+    fe = Lagrange{1, 1}()
+    bc = AllSides()
+    nel_per_dim = (4,)
+    Δx = 1 / nel_per_dim[1]
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+    m = dof_map.m
+
+    Npg = 4
+    P_raw, W_raw = legendre(Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+
+    ∇ϕP = SVector{Npg}([basis_functions_derivatives(fe, P[i]) for i in 1:Npg])
+
+    for i in 1:m
+        uₕ_coefs = zeros(m)
+        uₕ_coefs[i] = 1.0
+
+        # Compute
+        result = norm_H01²(uₕ_coefs, dof_map, Δx, W, ∇ϕP)
+
+        # Expected solution
+        result_expected = 2/Δx
+
+        # Test
+        @test result ≈ result_expected
+    end
+
+    # Test allocations
+    uₕ_coefs = zeros(m)
+    uₕ_coefs[m] = 1.0
+    @test (@allocated norm_H01²(uₕ_coefs, dof_map, Δx, W, ∇ϕP)) == 0
+end
+
+@testitem "norm_H01²: AllSides(), Lagrange{2, 1}(), uₕ=ϕᵢ" begin
+    using FEM: norm_H01², Lagrange, AllSides, DOFMap, basis_functions_derivatives
+    using GaussQuadrature: legendre
+    using StaticArrays: SVector
+
+    fe = Lagrange{2, 1}()
+    bc = AllSides()
+    nel_per_dim = (4,)
+    Δx = 1 / nel_per_dim[1]
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+    m = dof_map.m
+    EQoLG = dof_map.EQoLG
+
+    Npg = 4
+    P_raw, W_raw = legendre(Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+    ∇ϕP = SVector{Npg}([basis_functions_derivatives(fe, P[i]) for i in 1:Npg])
+
+    # Analytic ‖∇ϕₐ‖²_{L²(-1,1)} for the reference quadratic-Lagrange basis
+    #   ϕ₁ = ξ(ξ-1)/2, ϕ₂ = 1-ξ², ϕ₃ = ξ(ξ+1)/2
+    #  dϕ₁ = ξ-1/2,   dϕ₂ = -2ξ, dϕ₃ = ξ+1/2
+    vertex = 7 / 6 # a = 1 or a = 3
+    bubble = 8 / 3 # a = 2 (element-interior, not shared)
+
+    for i in 1:m
+        uₕ_coefs = zeros(m)
+        uₕ_coefs[i] = 1.0
+
+        result = norm_H01²(uₕ_coefs, dof_map, Δx, W, ∇ϕP)
+        result_expected = isodd(i) ? bubble * 2 / Δx : 2 * vertex * 2 / Δx
+
+        @test result ≈ result_expected
+    end
+end
+
+@testitem "norm_H01²: AllSides(), Hermite{3, 1}(), uₕ=ϕᵢ" begin
+    using FEM: norm_H01², Hermite, AllSides, DOFMap, basis_functions_derivatives
+    using GaussQuadrature: legendre
+    using StaticArrays: SVector
+
+    fe = Hermite{3, 1}()
+    bc = AllSides()
+    nel_per_dim = (4,)
+    Δx = 1 / nel_per_dim[1]
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+    m = dof_map.m
+    EQoLG = dof_map.EQoLG
+
+    Npg = 4
+    P_raw, W_raw = legendre(Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+    ∇ϕP = SVector{Npg}([basis_functions_derivatives(fe, P[i]) for i in 1:Npg])
+
+    # Analytic ‖∇ϕₐ‖²_{L²(-1,1)} for the reference cubic-Hermite basis
+    #   ϕ₁ = (2+ξ)(1-ξ)²/4,   ϕ₂ = (ξ+1)(1-ξ)²/4,  ϕ₃ = (2-ξ)(1+ξ)²/4,  ϕ₄ = (ξ-1)(1+ξ)²/4
+    #  dϕ₁ = 3(-1+ξ)(1+ξ)/4, dϕ₂ = (ξ-1)(1+3ξ)/4, dϕ₃ = 3(1-ξ)(1+ξ)/4, dϕ₄ = (ξ+1)(-1+3ξ)/4
+    value = 3 / 5  # a = 1 or a = 3
+    deriv = 4 / 15 # a = 2 or a = 4
+
+    for i in 1:m
+        uₕ_coefs = zeros(m)
+        uₕ_coefs[i] = 1.0
+
+        result = norm_H01²(uₕ_coefs, dof_map, Δx, W, ∇ϕP)
+        result_expected = isodd(i) ? 2 * value * 2 / Δx : 2 * deriv * 2 / Δx
+
+        @test result ≈ result_expected
+    end
+end

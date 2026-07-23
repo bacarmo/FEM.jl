@@ -40,6 +40,7 @@ function error_L2(
             eq = EQoLG[e]
 
             for j in 1:Npg, i in 1:Npg
+
                 φPᵢⱼ = φP[i, j]
                 uh_at_xy = zero(T)
                 for a in 1:nb
@@ -103,4 +104,46 @@ function error_L2(
     end
 
     return sqrt(result * Δx / 2)
+end
+
+"""
+    norm_H01²(uₕ_coefs, dof_map, Δx, W, ∇ϕP)
+
+Compute the squared H¹₀ norm ‖∇uₕ‖² = ∫_Ω |∇uₕ|² dx of the FE function `uₕ`
+
+# Arguments
+- `uₕ_coefs`: FE coefficient vector for `uₕ`, length `dof_map.m`
+- `dof_map`: DOF mapping (`EQoLG` connectivity, `m` free DOFs)
+- `Δx`: Uniform element size
+- `W`: Gauss quadrature weights
+- `∇ϕP`: Basis functions derivatives at each quadrature point; `∇ϕP[i][a] = ∇ϕₐ(Pᵢ)`
+"""
+function norm_H01²(
+        uₕ_coefs::AbstractVector{T},
+        dof_map::DOFMap,
+        Δx::T,
+        W::SVector{Npg, T},
+        ∇ϕP::SVector{Npg, SVector{nb, T}}
+) where {T, Npg, nb}
+    EQoLG = dof_map.EQoLG
+    m = dof_map.m
+
+    result = zero(T)
+    for e in eachindex(EQoLG)
+        eq = EQoLG[e]
+
+        for j in 1:Npg
+            ∇ϕPⱼ = ∇ϕP[j]
+            ∇uₕ_at_xPⱼ = zero(T)
+            for a in 1:nb
+                ia = eq[a]
+                ia > m && continue
+                ∇uₕ_at_xPⱼ = muladd(uₕ_coefs[ia], ∇ϕPⱼ[a], ∇uₕ_at_xPⱼ)
+            end
+
+            result = muladd(W[j], ∇uₕ_at_xPⱼ*∇uₕ_at_xPⱼ, result)  # (Δx/2)·(2/Δx)² scaling folded in below
+        end
+    end
+
+    return result * 2 / Δx
 end

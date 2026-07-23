@@ -16,6 +16,6 @@ include("assembly/global_matrices.jl")
 include("assembly/local_vectors.jl")
 include("assembly/global_vectors.jl")
 include("projection.jl")
-include("error_norms.jl")
+include("norms.jl")
 include("utilities.jl")
 end

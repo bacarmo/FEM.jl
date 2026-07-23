@@ -90,6 +90,7 @@ function assembly_rhs_2d!(
 
             Fe = zero(SVector{nb, T})
             for j in 1:Npg, i in 1:Npg
+
                 Fe = muladd(f(xeP[i], yeP[j]), W_basisP[i, j], Fe)
             end
 
@@ -101,6 +102,65 @@ function assembly_rhs_2d!(
     end
 
     lmul!(scale, F)
+    return nothing
+end
+
+"""
+    assembly_nonlinearity_F!(F, scale, f, d, dof_map, element_side_lengths, ϕP, W_ϕP)
+
+Fᵢ = scale * ∬ ϕᵢ(x) * f(Uₕ(x)) dx over Ω, with Uₕ(x) = Σ d[j] ϕⱼ(x).
+
+# Arguments
+- `F`: Global vector (zeroed and filled in-place, length `dof_map.m`)
+- `scale`: Scaling factor
+- `f`: Nonlinearity function, callable `s -> T`
+- `d`: FE coefficient vector for Uₕ, length `dof_map.m`
+- `dof_map`: DOF mapping (`EQoLG` connectivity, `m` free DOFs)
+- `element_side_lengths`: Side lengths of the (axis-aligned) element along each spatial dimension.
+- `ϕP`: Basis functions at each quadrature point; `ϕP[k][a] = ϕₐ(Pₖ)`
+- `W_ϕP`: `W_ϕP[k][a] = Wᵢ⋅ϕₐ(Pₖ)`
+"""
+function assembly_nonlinearity_F!(
+        F::AbstractVector{T},
+        scale::T,
+        f::Fun,
+        d::AbstractVector{T},
+        dof_map::DOFMap,
+        element_side_lengths::NTuple{1, T},
+        ϕP::SVector{Npg, SVector{nb, T}},
+        W_ϕP::SVector{Npg, SVector{nb, T}}
+) where {Fun, T, Npg, nb}
+    fill!(F, zero(T))
+
+    EQoLG = dof_map.EQoLG
+    m = dof_map.m
+    Δx = element_side_lengths[1]
+
+    for e in eachindex(EQoLG)
+        global_indices = EQoLG[e]
+
+        for k in 1:Npg
+            uh_at_xPₖ = zero(T)
+            ϕPₖ = ϕP[k]
+            for a in 1:nb
+                ia = global_indices[a]
+                ia > m && continue
+                uh_at_xPₖ = muladd(d[ia], ϕPₖ[a], uh_at_xPₖ)
+            end
+
+            fuh = f(uh_at_xPₖ)
+            W_ϕPₖ = W_ϕP[k]
+            for a in 1:nb
+                ia = global_indices[a]
+                ia > m && continue
+                F[ia] = muladd(W_ϕPₖ[a], fuh, F[ia])
+            end
+        end
+    end
+
+    scale_jacobian = scale * (Δx / 2)
+    lmul!(scale_jacobian, F)
+
     return nothing
 end
 
@@ -139,6 +199,7 @@ function assembly_nonlinearity_F!(
         global_indices = EQoLG[e]
 
         for j in 1:Npg, i in 1:Npg
+
             uh_at_xy = zero(T)
             φPᵢⱼ = φP[i, j]
             for a in 1:nb

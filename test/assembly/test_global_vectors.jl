@@ -141,6 +141,43 @@ end
     end
 end
 
+@testitem "assembly_nonlinearity_F!: Lagrange{1,1}(), AllSides(), f(u) = u, d = ones(m)" begin
+    using FEM: assembly_nonlinearity_F!, Lagrange, AllSides, DOFMap,
+               assembly_global_matrix, assembly_local_matrix_ϕxϕ, basis_functions
+    using GaussQuadrature: legendre
+    using StaticArrays: SVector
+
+    # Setup
+    fe = Lagrange{1, 1}()
+    bc = AllSides()
+    nel_per_dim = (4,)
+    element_side_lengths = 1 ./ nel_per_dim
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+
+    f(u) = u
+    scale = 1.0
+    d = ones(dof_map.m)
+    F = zeros(dof_map.m)
+
+    Npg = 2
+    P, W = legendre(Npg)
+    ϕP = SVector{Npg}(basis_functions(fe, P[i]) for i in 1:Npg)
+    W_ϕP = SVector{Npg}(W[i] * ϕP[i] for i in 1:Npg)
+
+    # Compute
+    alloc = @allocated assembly_nonlinearity_F!(
+        F, scale, f, d, dof_map, element_side_lengths, ϕP, W_ϕP)
+
+    # Expected solution
+    # If f(u) = u and d = ones, F = M·d where M is mass matrix
+    Me = assembly_local_matrix_ϕxϕ(fe, element_side_lengths)
+    F_expected = assembly_global_matrix(Me, dof_map) * d
+
+    # Test
+    @test F ≈ F_expected
+    @test alloc == 0
+end
+
 @testitem "assembly_nonlinearity_F!: Lagrange{1,2}(), LeftRightTop(), f(u) = u, d = ones(m)" begin
     using FEM: assembly_nonlinearity_F!, Lagrange, LeftRightTop, DOFMap,
                assembly_global_matrix, assembly_local_matrix_ϕxϕ, basis_functions

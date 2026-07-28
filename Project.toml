@@ -1,6 +1,6 @@
 name = "FEM"
 uuid = "a6aaf273-c702-4f9b-ac0e-4c7ed6782468"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Bruno Alves do Carmo"]
 
 [workspace]

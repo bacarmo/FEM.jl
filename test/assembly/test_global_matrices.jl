@@ -262,3 +262,43 @@ end
     @test DF_global ≈ DF_global_expected
     @test size(DF_global) == (dof_map.m, dof_map.m)
 end
+
+@testitem "assembly_global_matrix_DF: Lagrange{1, 1}(), AllSides(), f(s) = 1.0" begin
+    using FEM: assembly_global_matrix_DF, assembly_local_matrix_ϕxϕ,
+               assembly_global_matrix, Lagrange, DOFMap, AllSides, basis_functions
+    using StaticArrays: SVector, SMatrix
+    using GaussQuadrature: legendre
+    using LinearAlgebra: Symmetric
+
+    # Setup
+    fe = Lagrange{1, 1}()
+    bc = AllSides()
+    nel_per_dim = (4,)
+    element_side_lengths = 1 ./ nel_per_dim
+    f(s) = 1.0
+
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+    d = ones(dof_map.m)
+
+    Npg = 2
+    P_raw, W_raw = legendre(Npg)
+    P, W = SVector{Npg}(P_raw), SVector{Npg}(W_raw)
+
+    ϕP = SVector{Npg}([basis_functions(fe, P[i]) for i in 1:Npg])
+    nb = length(ϕP[1])
+    W_ϕPϕP = SVector{Npg}([SMatrix{nb, nb, Float64}(W[j] * ϕP[j][a] * ϕP[j][b]
+                           for a in 1:nb, b in 1:nb)
+                           for j in 1:Npg])
+
+    # Compute
+    DF_global = assembly_global_matrix_DF(
+        1.0, f, d, dof_map, element_side_lengths, ϕP, W_ϕPϕP)
+
+    # Expected solution
+    Me = assembly_local_matrix_ϕxϕ(fe, element_side_lengths)
+    DF_global_expected = assembly_global_matrix(Symmetric(Me), dof_map)
+
+    # Test
+    @test DF_global ≈ DF_global_expected
+    @test size(DF_global) == (dof_map.m, dof_map.m)
+end

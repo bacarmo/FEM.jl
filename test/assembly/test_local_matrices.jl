@@ -182,6 +182,7 @@ end
 
         # Test correctness
         @testset "Entry ($a,$b)" for b in axes(DG, 2), a in 1:b # Upper triangle: a ≤ b
+
             @test DG[a, b] ≈ DG_expected[a, b]
         end
         @test eltype(DG) == T
@@ -233,6 +234,7 @@ end
         xeP = xP .+ (e - 1) * Δx
         assembly_local_matrix_DG!(DG, ∂ₛg, v, dof_map.m, dof_map.EQoLG[e], xeP, ϕP, W_ϕPϕP)
         @testset "Entry ($a,$b)" for b in axes(DG, 2), a in 1:b # Upper triangle: a ≤ b
+
             @test DG[a, b] ≈ DG_expected[e][a, b]
         end
     end
@@ -275,6 +277,7 @@ end
 
     # Test
     @testset "Entry ($a,$b)" for b in axes(DF, 2), a in 1:b # Upper triangle: a ≤ b
+
         @test DF[a, b] ≈ DF_expected[a, b]
     end
 
@@ -284,5 +287,54 @@ end
     eq = dof_map.EQoLG[1]
 
     alloc = @allocated assembly_local_matrix_DF!(DF, f, d, m, eq, φP, W_φPφP)
+    @test alloc == 0
+end
+
+@testitem "assembly_local_matrix_DF!: Lagrange{1, 1}(), AllSides(), f(s) = 1.0" begin
+    using FEM: assembly_local_matrix_DF!, assembly_local_matrix_ϕxϕ, Lagrange, DOFMap,
+               AllSides, basis_functions
+    using StaticArrays: SVector, SMatrix
+    using GaussQuadrature: legendre
+
+    # Setup
+    fe = Lagrange{1, 1}()
+    bc = AllSides()
+    nel_per_dim = (4,)
+    element_side_lengths = 1 ./ nel_per_dim
+    Δx = element_side_lengths[1]
+    f(s) = 1.0
+
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+    d = ones(dof_map.m)
+
+    Npg = 2
+    P_raw, W_raw = legendre(Npg)
+    P, W = SVector{Npg}(P_raw), SVector{Npg}(W_raw)
+
+    ϕP = SVector{Npg}([basis_functions(fe, P[i]) for i in 1:Npg])
+    nb = length(ϕP[1])
+    W_ϕPϕP = SVector{Npg}([SMatrix{nb, nb, Float64}(W[j] * ϕP[j][a] * ϕP[j][b]
+                           for a in 1:nb, b in 1:nb)
+                           for j in 1:Npg])
+
+    # Compute
+    DF = zeros(nb, nb)
+    assembly_local_matrix_DF!(DF, f, d, dof_map.m, dof_map.EQoLG[1], ϕP, W_ϕPϕP)
+
+    # Expected solution
+    Me = assembly_local_matrix_ϕxϕ(fe, element_side_lengths)
+    DF_expected = Me * (2 / Δx)
+
+    # Test
+    @testset "Entry ($a,$b)" for b in axes(DF, 2), a in 1:b # Upper triangle: a ≤ b
+
+        @test DF[a, b] ≈ DF_expected[a, b]
+    end
+
+    # Test allocation-free operation
+    m = dof_map.m
+    eq = dof_map.EQoLG[1]
+
+    alloc = @allocated assembly_local_matrix_DF!(DF, f, d, m, eq, ϕP, W_ϕPϕP)
     @test alloc == 0
 end

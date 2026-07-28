@@ -29,6 +29,7 @@ function assembly_local_matrix_ϕxϕ(
     for i in eachindex(ϕP)
         ϕPᵢ = ϕP[i]
         for b in 1:nb, a in 1:nb
+
             M[a, b] += W_jac[i] * ϕPᵢ[a] * ϕPᵢ[b]
         end
     end
@@ -49,9 +50,11 @@ function assembly_local_matrix_ϕxϕ(
     jac = Δx * Δy / 4
 
     for i in 1:Npg, j in 1:Npg
+
         φ = basis_functions(fe, P[i], P[j])
         w_jac = W[i] * W[j] * jac
         for b in 1:nb, a in 1:nb
+
             M[a, b] += w_jac * φ[a] * φ[b]
         end
     end
@@ -89,6 +92,7 @@ function assembly_local_matrix_∇ϕx∇ϕ(
     for i in 1:Npg
         dϕPᵢ = dϕP[i]
         for b in 1:nb, a in 1:nb
+
             K[a, b] += w_scale[i] * dϕPᵢ[a] * dϕPᵢ[b]
         end
     end
@@ -110,9 +114,11 @@ function assembly_local_matrix_∇ϕx∇ϕ(
     scale_y = Δx / Δy   # (2 / Δy)^2 * (Δx * Δy / 4))
 
     for i in 1:Npg, j in 1:Npg
+
         ∂φ∂ξ, ∂φ∂η = basis_functions_derivatives(fe, P[i], P[j])
         w = W[i] * W[j]
         for b in 1:nb, a in 1:nb
+
             K[a, b] += w * (∂φ∂ξ[a] * ∂φ∂ξ[b] * scale_x +
                             ∂φ∂η[a] * ∂φ∂η[b] * scale_y)
         end
@@ -149,10 +155,12 @@ function assembly_local_matrix_ϕxc∇ϕ(
     scale_y = c[2] * Δx / 2   # c₂ * (2 / Δy) * (Δx * Δy / 4))
 
     for i in 1:Npg, j in 1:Npg
+
         φ = basis_functions(fe, P[i], P[j])
         ∂φ∂ξ, ∂φ∂η = basis_functions_derivatives(fe, P[i], P[j])
         w = W[i] * W[j]
         for b in 1:nb, a in 1:nb
+
             K[a, b] += w * φ[a] * (∂φ∂ξ[b] * scale_x + ∂φ∂η[b] * scale_y)
         end
     end
@@ -245,6 +253,7 @@ function assembly_local_matrix_DG!(
         # Accumulate contributions to local matrix
         W_ϕϕ = W_ϕPϕP[j]
         @inbounds for b in 1:nb, a in 1:b  # Upper triangle: a ≤ b
+
             DG[a, b] = muladd(W_ϕϕ[a, b], g_val, DG[a, b])
         end
     end
@@ -296,7 +305,60 @@ function assembly_local_matrix_DF!(
         # Accumulate contributions to local matrix
         W_φφ = W_φPφP[i, j]
         @inbounds for b in 1:nb, a in 1:b # Upper triangle: a ≤ b
+
             DF[a, b] = muladd(W_φφ[a, b], f_val, DF[a, b])
+        end
+    end
+
+    return nothing
+end
+
+"""
+    assembly_local_matrix_DF!(DF, f, d, m, eq, ϕP, W_ϕPϕP)
+
+DFₐᵦ = ∫ ϕₐ(ξ) ϕᵦ(ξ) f(Uₕ(x(ξ))) dξ over reference element Ω = (-1,1), with Uₕ(x(ξ)) = Σ d[eq[j]] ϕⱼ(ξ).
+
+# Arguments
+- `DF`: Local matrix (nb × nb), zeroed and filled in-place (upper triangle only)
+- `f`: Callable `x -> T`
+- `d`: FE coefficient vector for Uₕ, length `m`
+- `m`: Number of free DOFs
+- `eq`: Local-to-global DOF map for the element (`EQoLG[e]`), length `nb`
+- `ϕP`: Basis functions at each quadrature point; `ϕP[i][a] = φₐ(Pᵢ)`
+- `W_ϕPϕP`: `W_ϕPϕP[i][a,b] = Wᵢ⋅ϕₐ(Pᵢ)⋅ϕᵦ(Pᵢ)`
+
+# Notes
+- Scaling factor and Jacobian are NOT applied here
+"""
+function assembly_local_matrix_DF!(
+        DF::AbstractMatrix{T},
+        f::Fun,
+        d::AbstractVector{T},
+        m::I,
+        eq::SVector{nb, I},
+        ϕP::SVector{Npg, SVector{nb, T}},
+        W_ϕPϕP::SVector{Npg, <:SMatrix{nb, nb, T}}
+) where {Fun, T, I, Npg, nb}
+    fill!(DF, zero(T))
+
+    for k in eachindex(ϕP, W_ϕPϕP)
+        # Compute Uₕ at quadrature point
+        u_val = zero(T)
+        ϕPₖ = ϕP[k]
+        for a in 1:nb
+            ia = eq[a]
+            ia > m && continue
+            u_val = muladd(d[ia], ϕPₖ[a], u_val)
+        end
+
+        # Evaluate f at current point
+        f_val = f(u_val)
+
+        # Accumulate contributions to local matrix
+        W_ϕϕ = W_ϕPϕP[k]
+        @inbounds for b in 1:nb, a in 1:b # Upper triangle: a ≤ b
+
+            DF[a, b] = muladd(W_ϕϕ[a, b], f_val, DF[a, b])
         end
     end
 

@@ -15,16 +15,16 @@ Compute the L² error ‖u - uₕ‖_L²(Ω) between the exact solution and its 
 - `φP`: Basis functions at each quadrature point; `φP[i,j][a] = φₐ(Pᵢ,Pⱼ)`
 """
 function error_L2(
-        u::Fun,
-        uₕ_coefs::AbstractVector{T},
-        dof_map::DOFMap,
-        nel_per_dim::NTuple{2, Integer},
-        element_side_lengths::NTuple{2, T},
-        W::SVector{Npg, T},
-        xP::SVector{Npg, T},
-        yP::SVector{Npg, T},
-        φP::SMatrix{Npg, Npg, SVector{nb, T}, Npg²}
-) where {Fun, T, Npg, Npg², nb}
+    u::Fun,
+    uₕ_coefs::AbstractVector{T},
+    dof_map::DOFMap,
+    nel_per_dim::NTuple{2,Integer},
+    element_side_lengths::NTuple{2,T},
+    W::SVector{Npg,T},
+    xP::SVector{Npg,T},
+    yP::SVector{Npg,T},
+    φP::SMatrix{Npg,Npg,SVector{nb,T},Npg²}
+) where {Fun,T,Npg,Npg²,nb}
     EQoLG = dof_map.EQoLG
     m = dof_map.m
     Δx, Δy = element_side_lengths
@@ -73,14 +73,14 @@ Compute the L² error ‖u - uₕ‖_L²(Ω) between the exact solution and its 
 - `ϕP`: Basis functions at each quadrature point; `ϕP[i][a] = ϕₐ(Pᵢ)`
 """
 function error_L2(
-        u::Fun,
-        uₕ_coefs::AbstractVector{T},
-        dof_map::DOFMap,
-        Δx::T,
-        W::SVector{Npg, T},
-        xP::SVector{Npg, T},
-        ϕP::SVector{Npg, SVector{nb, T}}
-) where {Fun, T, Npg, nb}
+    u::Fun,
+    uₕ_coefs::AbstractVector{T},
+    dof_map::DOFMap,
+    Δx::T,
+    W::SVector{Npg,T},
+    xP::SVector{Npg,T},
+    ϕP::SVector{Npg,SVector{nb,T}}
+) where {Fun,T,Npg,nb}
     EQoLG = dof_map.EQoLG
     m = dof_map.m
 
@@ -119,12 +119,12 @@ Compute the squared H¹₀ norm ‖∇uₕ‖² = ∫_Ω |∇uₕ|² dx of the F
 - `∇ϕP`: Basis functions derivatives at each quadrature point; `∇ϕP[i][a] = ∇ϕₐ(Pᵢ)`
 """
 function norm_H01²(
-        uₕ_coefs::AbstractVector{T},
-        dof_map::DOFMap,
-        Δx::T,
-        W::SVector{Npg, T},
-        ∇ϕP::SVector{Npg, SVector{nb, T}}
-) where {T, Npg, nb}
+    uₕ_coefs::AbstractVector{T},
+    dof_map::DOFMap,
+    Δx::T,
+    W::SVector{Npg,T},
+    ∇ϕP::SVector{Npg,SVector{nb,T}}
+) where {T,Npg,nb}
     EQoLG = dof_map.EQoLG
     m = dof_map.m
 
@@ -146,4 +146,44 @@ function norm_H01²(
     end
 
     return result * 2 / Δx
+end
+
+"""
+    norm_L2(uₕ_coefs, dof_map, element_side_lengths, W, φP)
+
+Compute the L² norm ‖uₕ‖_L²(Ω) of a finite element function on a uniform, axis-aligned mesh in `Dim ∈ {1,2}` spatial dimensions.
+
+# Arguments
+- `uₕ_coefs`: FE coefficient vector for `uₕ`, length `dof_map.m`
+- `dof_map`: DOF mapping (`EQoLG` connectivity, `m` free DOFs)
+- `element_side_lengths`: Side lengths of the (axis-aligned) element along each spatial dimension
+- `W`: Tensor-product Gauss quadrature weights; in 2D, `W[i,j] = wᵢwⱼ`
+- `φP`: Basis functions at each quadrature point; in 1D, `φP[i][a] = φₐ(Pᵢ)`; in 2D, `φP[i,j][a] = φₐ(Pᵢ,Pⱼ)`
+
+# Notes
+- 1D case: `W::SVector{Npg,T}`, `φP::SVector{Npg,SVector{nb,T}}`
+- 2D case: `W::SMatrix{Npg,Npg,T,Npg²}`, `φP::SMatrix{Npg,Npg,SVector{nb,T},Npg²}`
+"""
+function norm_L2(
+    uₕ_coefs::AbstractVector{T},
+    dof_map::DOFMap,
+    element_side_lengths::NTuple{Dim,T},
+    W::StaticArray{S,T,Dim},
+    φP::StaticArray{S,SVector{nb,T},Dim}
+) where {T,Dim,nb,S<:Tuple}
+    EQoLG = dof_map.EQoLG
+    m = dof_map.m
+    detJ = prod(element_side_lengths ./ 2)
+
+    result = zero(T)
+    for eq in EQoLG, (Wₖ, φPₖ) in zip(W, φP)
+        uh_at_xPₖ = zero(T)
+        for a in 1:nb
+            iₐᵉ = eq[a]
+            iₐᵉ > m && continue
+            uh_at_xPₖ = muladd(uₕ_coefs[iₐᵉ], φPₖ[a], uh_at_xPₖ)
+        end
+        result = muladd(Wₖ, uh_at_xPₖ * uh_at_xPₖ, result)
+    end
+    return sqrt(detJ * result)
 end

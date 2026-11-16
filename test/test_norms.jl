@@ -4,7 +4,7 @@
     using StaticArrays: SVector, SMatrix
 
     # Setup
-    fe = Lagrange{1, 2}()
+    fe = Lagrange{1,2}()
     bc = AllSides()
     nel_per_dim = (2, 2)
     pmin = (0.0, 0.0)
@@ -25,8 +25,8 @@
     xP = (Δx / 2) .* (P .+ 1) .+ pmin[1]
     yP = (Δy / 2) .* (P .+ 1) .+ pmin[2]
 
-    φP = SMatrix{Npg, Npg}([basis_functions(fe, P[i], P[j])
-                            for i in 1:Npg, j in 1:Npg])
+    φP = SMatrix{Npg,Npg}([basis_functions(fe, P[i], P[j])
+                           for i in 1:Npg, j in 1:Npg])
 
     # Compute
     L2_err = error_L2(
@@ -48,7 +48,7 @@ end
     using StaticArrays: SVector, SMatrix
 
     # Setup
-    fe = Lagrange{1, 2}()
+    fe = Lagrange{1,2}()
     bc = AllSides()
     nel_per_dim = (4, 3)
     pmin = (0.0, 0.0)
@@ -60,7 +60,7 @@ end
     Δx, Δy = element_side_lengths
 
     u(x, y) = x * (x - 1) * y * (y - 1)
-    uₕ_coefs = [u(i * Δx, j * Δy) for j in 1:(Ny - 1) for i in 1:(Nx - 1)]
+    uₕ_coefs = [u(i * Δx, j * Δy) for j in 1:(Ny-1) for i in 1:(Nx-1)]
 
     Npg = 4
     P_raw, W_raw = legendre(Npg)
@@ -70,8 +70,8 @@ end
     xP = (Δx / 2) .* (P .+ 1) .+ pmin[1]
     yP = (Δy / 2) .* (P .+ 1) .+ pmin[2]
 
-    φP = SMatrix{Npg, Npg}([basis_functions(fe, P[i], P[j])
-                            for i in 1:Npg, j in 1:Npg])
+    φP = SMatrix{Npg,Npg}([basis_functions(fe, P[i], P[j])
+                           for i in 1:Npg, j in 1:Npg])
 
     # Compute
     L2_err = error_L2(
@@ -80,9 +80,9 @@ end
     # Expected solution
     L2_err_expected = sqrt(
         4 * 77 / 74_649_600 +
-        4 * 631 / 223_948_800 +
-        2 * 11 / 6_220_800 +
-        2 * 7 / 1_749_600
+            4 * 631 / 223_948_800 +
+            2 * 11 / 6_220_800 +
+            2 * 7 / 1_749_600
     )
 
     # Test
@@ -99,7 +99,7 @@ end
     using StaticArrays: SVector, SMatrix
 
     # Setup
-    fe = Lagrange{1, 2}()
+    fe = Lagrange{1,2}()
     bc = AllSides()
     nel_per_dim = (4, 3)
     pmin = (0.0, 0.0)
@@ -120,8 +120,8 @@ end
     xP = (Δx / 2) .* (P .+ 1) .+ pmin[1]
     yP = (Δy / 2) .* (P .+ 1) .+ pmin[2]
 
-    φP = SMatrix{Npg, Npg}([basis_functions(fe, P[i], P[j])
-                            for i in 1:Npg, j in 1:Npg])
+    φP = SMatrix{Npg,Npg}([basis_functions(fe, P[i], P[j])
+                           for i in 1:Npg, j in 1:Npg])
 
     # Expected solution
     # Each interior basis function φᵢ has ‖φᵢ‖_L2 = sqrt(4 * Δx * Δy / 9)
@@ -143,7 +143,7 @@ end
     using StaticArrays: SVector
 
     # Setup
-    fe = Lagrange{1, 1}()
+    fe = Lagrange{1,1}()
     bc = AllSides()
     nel_per_dim = (4,)
     Δx = 1 / nel_per_dim[1]
@@ -177,7 +177,7 @@ end
     using StaticArrays: SVector
 
     # Setup
-    fe = Lagrange{1, 1}()
+    fe = Lagrange{1,1}()
     bc = AllSides()
     nel_per_dim = (4,)
     Δx = 1 / nel_per_dim[1]
@@ -216,7 +216,7 @@ end
     using GaussQuadrature: legendre
     using StaticArrays: SVector
 
-    fe = Lagrange{2, 1}()
+    fe = Lagrange{2,1}()
     bc = AllSides()
     nel_per_dim = (4,)
     Δx = 1 / nel_per_dim[1]
@@ -252,7 +252,7 @@ end
     using GaussQuadrature: legendre
     using StaticArrays: SVector
 
-    fe = Hermite{3, 1}()
+    fe = Hermite{3,1}()
     bc = AllSides()
     nel_per_dim = (4,)
     Δx = 1 / nel_per_dim[1]
@@ -281,4 +281,82 @@ end
 
         @test result ≈ result_expected
     end
+end
+
+@testitem "norm_L2: AllSides(), Lagrange{1, 2}(), uₕ=ϕᵢ" begin
+    using FEM: norm_L2, Lagrange, AllSides, DOFMap, basis_functions
+    using GaussQuadrature: legendre
+    using StaticArrays: SVector, SMatrix
+
+    # Setup
+    fe = Lagrange{1,2}()
+    bc = AllSides()
+    nel_per_dim = (4, 3)
+    pmin = (0.0, 0.0)
+    pmax = (1.0, 1.0)
+    element_side_lengths = (pmax .- pmin) ./ nel_per_dim
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+
+    Npg = 4
+    P_raw, W_raw = legendre(Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+
+    φP = SMatrix{Npg,Npg}([basis_functions(fe, P[i], P[j]) for i in 1:Npg, j in 1:Npg])
+    matW = SMatrix{Npg,Npg}([W[i]*W[j] for i in 1:Npg, j in 1:Npg])
+
+    # Expected solution
+    # Each interior basis function φᵢ has ‖φᵢ‖_L2 = sqrt(4 * Δx * Δy / 9)
+    result_expected = sqrt(4 * prod(element_side_lengths) / 9)
+
+    # Test
+    for i in 1:(dof_map.m)
+        uₕ_coefs = zeros(dof_map.m)
+        uₕ_coefs[i] = 1.0
+        result = norm_L2(uₕ_coefs, dof_map, element_side_lengths, matW, φP)
+        @test result ≈ result_expected
+    end
+
+    # Test allocations
+    uₕ_coefs = zeros(dof_map.m)
+    uₕ_coefs[dof_map.m] = 1.0
+    @test (@allocated norm_L2(uₕ_coefs, dof_map, element_side_lengths, matW, φP)) == 0
+end
+
+@testitem "norm_L2: AllSides(), Lagrange{1, 1}(), uₕ=ϕᵢ" begin
+    using FEM: norm_L2, Lagrange, AllSides, DOFMap, basis_functions
+    using GaussQuadrature: legendre
+    using StaticArrays: SVector
+
+    # Setup
+    fe = Lagrange{1,1}()
+    bc = AllSides()
+    nel_per_dim = (4,)
+    pmin = (0.0,)
+    pmax = (1.0,)
+    element_side_lengths = (pmax .- pmin) ./ nel_per_dim
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+
+    Npg = 4
+    P_raw, W_raw = legendre(Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+    φP = SVector{Npg}([basis_functions(fe, P[i]) for i in 1:Npg])
+
+    # Expected solution
+    # Each interior basis function φᵢ has ‖φᵢ‖_L2 = sqrt(2*Δx/3)
+    result_expected = sqrt(2 * prod(element_side_lengths) / 3)
+
+    # Test
+    for i in 1:(dof_map.m)
+        uₕ_coefs = zeros(dof_map.m)
+        uₕ_coefs[i] = 1.0
+        result = norm_L2(uₕ_coefs, dof_map, element_side_lengths, W, φP)
+        @test result ≈ result_expected
+    end
+
+    # Test allocations
+    uₕ_coefs = zeros(dof_map.m)
+    uₕ_coefs[dof_map.m] = 1.0
+    @test (@allocated norm_L2(uₕ_coefs, dof_map, element_side_lengths, W, φP)) == 0
 end

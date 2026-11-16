@@ -1,6 +1,6 @@
 module FEM
 
-using StaticArrays: SVector, SMatrix
+using StaticArrays: SVector, SMatrix, StaticArray
 using GaussQuadrature: legendre
 using SparseArrays: sparse, nnz, nzrange, SparseMatrixCSC
 using LinearAlgebra: Symmetric, lmul!, ldiv!

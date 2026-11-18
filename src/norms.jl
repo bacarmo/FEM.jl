@@ -176,14 +176,76 @@ function norm_L2(
     detJ = prod(element_side_lengths ./ 2)
 
     result = zero(T)
-    for eq in EQoLG, (Wₖ, φPₖ) in zip(W, φP)
-        uh_at_xPₖ = zero(T)
-        for a in 1:nb
-            iₐᵉ = eq[a]
-            iₐᵉ > m && continue
-            uh_at_xPₖ = muladd(uₕ_coefs[iₐᵉ], φPₖ[a], uh_at_xPₖ)
+    for eq in EQoLG
+        cᵉ = local_coefs(uₕ_coefs, eq, m, Val(nb))
+        for (Wₖ, φPₖ) in zip(W, φP)
+            uh_at_xPₖ = dot(cᵉ, φPₖ)
+            result = muladd(Wₖ, uh_at_xPₖ^2, result)
         end
-        result = muladd(Wₖ, uh_at_xPₖ * uh_at_xPₖ, result)
     end
     return sqrt(detJ * result)
+end
+
+"""
+    norm_H01(uₕ_coefs, dof_map, element_side_lengths, W, ∇ϕP)
+
+Compute the H¹₀ norm ‖∇uₕ‖ = sqrt(∫_Ω |∇uₕ|²dΩ) of the FE function `uₕ`
+
+# Arguments
+- `uₕ_coefs`: FE coefficient vector for `uₕ`, length `dof_map.m`
+- `dof_map`: DOF mapping (`EQoLG` connectivity, `m` free DOFs)
+- `element_side_lengths`: Side lengths of the (axis-aligned) element along each spatial dimension
+- `W`: Tensor-product Gauss quadrature weights; in 2D, `W[i,j] = wᵢwⱼ`
+- `∇φP`: Basis functions derivatives at each quadrature point; in 1D, `∇φP[i][a] = ∂φₐ_∂ξ(Pᵢ)`; in 2D, `∇φP[i,j][1][a] = ∂φₐ_∂ξ(Pᵢ,Pⱼ)`, `∇φP[i,j][2][a] = ∂φₐ_∂η(Pᵢ,Pⱼ)`
+"""
+function norm_H01 end
+
+function norm_H01(
+    uₕ_coefs::AbstractVector{T},
+    dof_map::DOFMap,
+    element_side_lengths::NTuple{1,T},
+    W::SVector{Npg,T},
+    ∇φP::SVector{Npg,SVector{nb,T}}
+) where {T,Npg,nb}
+    EQoLG = dof_map.EQoLG
+    m = dof_map.m
+    scale = 2 / element_side_lengths[1] # (2/Δx)² * (Δx/2)
+
+    result = zero(T)
+    for eq in EQoLG
+        cᵉ = local_coefs(uₕ_coefs, eq, m, Val(nb))
+        for (Wₖ, ∇φPₖ) in zip(W, ∇φP)
+            ∂₁uh_at_xPₖ = dot(cᵉ, ∇φPₖ)
+            result = muladd(Wₖ, ∂₁uh_at_xPₖ^2, result)
+        end
+    end
+    return sqrt(scale * result)
+end
+
+function norm_H01(
+    uₕ_coefs::AbstractVector{T},
+    dof_map::DOFMap,
+    element_side_lengths::NTuple{2,T},
+    W::SMatrix{Npg,Npg,T,Npg²},
+    ∇φP::SMatrix{Npg,Npg,NTuple{2,SVector{nb,T}},Npg²}
+) where {T,Npg,Npg²,nb}
+    EQoLG = dof_map.EQoLG
+    m = dof_map.m
+    Δx, Δy = element_side_lengths
+    scale₁ = Δy/Δx # (2/Δx)² * (Δx*Δy/4)
+    scale₂ = Δx/Δy # (2/Δy)² * (Δx*Δy/4)
+    W1 = scale₁ .* W
+    W2 = scale₂ .* W
+
+    result = zero(T)
+    for eq in EQoLG
+        cᵉ = local_coefs(uₕ_coefs, eq, m, Val(nb))
+        for (Wₖ1, Wₖ2, ∇φPₖ) in zip(W1, W2, ∇φP)
+            ∂₁uh_at_xPₖ = dot(cᵉ, ∇φPₖ[1])
+            ∂₂uh_at_xPₖ = dot(cᵉ, ∇φPₖ[2])
+            result = muladd(Wₖ1, ∂₁uh_at_xPₖ^2, result)
+            result = muladd(Wₖ2, ∂₂uh_at_xPₖ^2, result)
+        end
+    end
+    return sqrt(result)
 end

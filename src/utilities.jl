@@ -20,9 +20,9 @@ The suffix `11` denotes the `(1,1)` block of the matrix M.
 - `mirror::Vector{I}`: `mirror[k]` is the index in `M.nzval` of the transposed entry `M[j,i]`.  Equals `direct[k]` on the diagonal.
 """
 function build_upper_to_full_maps11(
-        M::SparseMatrixCSC{T, I},
-        M₁₁upper::Symmetric{T, SparseMatrixCSC{T, I}}
-) where {T <: AbstractFloat, I <: Integer}
+    M::SparseMatrixCSC{T,I},
+    M₁₁upper::Symmetric{T,SparseMatrixCSC{T,I}}
+) where {T<:AbstractFloat,I<:Integer}
     U = M₁₁upper.data
     nnz_U = nnz(U)
     direct = Vector{I}(undef, nnz_U)
@@ -65,9 +65,9 @@ The suffix `22` denotes the `(2,2)` block of the matrix `M = [M₁₁ M₁₂;M�
 - `mirror::Vector{I}`: `mirror[k]` is the index in `M.nzval` of the transposed entry `M[j+m₁,i+m₁]`.  Equals `direct[k]` on the diagonal.
 """
 function build_upper_to_full_maps22(
-        M::SparseMatrixCSC{T, I},
-        M₂₂upper::Symmetric{T, SparseMatrixCSC{T, I}}
-) where {T <: AbstractFloat, I <: Integer}
+    M::SparseMatrixCSC{T,I},
+    M₂₂upper::Symmetric{T,SparseMatrixCSC{T,I}}
+) where {T<:AbstractFloat,I<:Integer}
     m₂ = size(M₂₂upper, 1)
     m₁ = size(M, 1) - m₂
 
@@ -112,11 +112,11 @@ For each `k`, assigns `M.nzval[direct[k]] = M.nzval[mirror[k]] = M_upper.data.nz
 - `mirror::Vector{I}`: index map for the transposed entry `M[j,i]`.
 """
 function scatter_symmetric!(
-        M::SparseMatrixCSC{T, I},
-        M_upper::Symmetric{T, SparseMatrixCSC{T, I}},
-        direct::Vector{I},
-        mirror::Vector{I}
-) where {T <: AbstractFloat, I <: Integer}
+    M::SparseMatrixCSC{T,I},
+    M_upper::Symmetric{T,SparseMatrixCSC{T,I}},
+    direct::Vector{I},
+    mirror::Vector{I}
+) where {T<:AbstractFloat,I<:Integer}
     nzval_U = M_upper.data.nzval
     nzval_M = M.nzval
     @inbounds for k in eachindex(nzval_U)
@@ -124,4 +124,11 @@ function scatter_symmetric!(
         nzval_M[mirror[k]] = nzval_U[k]
     end
     return nothing
+end
+
+# ==============================================================================
+# Compute local coefs
+# ==============================================================================
+@inline function local_coefs(uₕ_coefs::AbstractVector{T}, eq::SVector{nb,I}, m::I, ::Val{nb}) where {T,I,nb}
+    return SVector{nb,T}(ntuple(a -> eq[a] > m ? zero(T) : uₕ_coefs[eq[a]], Val(nb)))
 end

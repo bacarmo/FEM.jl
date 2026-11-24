@@ -361,6 +361,81 @@ end
     @test (@allocated norm_L2(uₕ_coefs, dof_map, element_side_lengths, W, φP)) == 0
 end
 
+@testitem "norm_L2: AllSides(), Lagrange{2, 1}(), u(x)=x(x-1)" begin
+    using FEM: norm_L2, Lagrange, AllSides, DOFMap, basis_functions
+    using GaussQuadrature: legendre
+    using StaticArrays: SVector
+
+    # Setup
+    Deg = 2
+    fe = Lagrange{Deg,1}()
+    bc = AllSides()
+    nel_per_dim = (4,)
+    pmin = (0.0,)
+    pmax = (1.0,)
+    element_side_lengths = (pmax .- pmin) ./ nel_per_dim
+    Δx = element_side_lengths[1]
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+
+    Npg = 4
+    P_raw, W_raw = legendre(Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+    φP = SVector{Npg}([basis_functions(fe, P[i]) for i in 1:Npg])
+
+    # Expected solution ‖u‖_L2 = sqrt(1/30)
+    u(x) = x*(x-1)
+    result_expected = sqrt(1/30)
+
+    # Test
+    X = (Δx/Deg):(Δx/Deg):(1-(Δx/Deg))
+    uₕ_coefs = u.(X)
+    result = norm_L2(uₕ_coefs, dof_map, element_side_lengths, W, φP)
+    @test result ≈ result_expected
+
+    # Test allocations
+    @test (@allocated norm_L2(uₕ_coefs, dof_map, element_side_lengths, W, φP)) == 0
+end
+
+@testitem "norm_L2: AllSides(), Lagrange{2, 2}(), u(x,y)=x(x-1)y(y-1)" begin
+    using FEM: norm_L2, Lagrange, AllSides, DOFMap, basis_functions
+    using GaussQuadrature: legendre
+    using StaticArrays: SVector, SMatrix
+
+    # Setup
+    Deg = 2
+    fe = Lagrange{Deg,2}()
+    bc = AllSides()
+    nel_per_dim = (4, 3)
+    pmin = (0.0, 0.0)
+    pmax = (1.0, 1.0)
+    element_side_lengths = (pmax .- pmin) ./ nel_per_dim
+    Δx, Δy = element_side_lengths
+    dof_map = DOFMap(fe, bc, nel_per_dim)
+
+    Npg = 4
+    P_raw, W_raw = legendre(Npg)
+    P = SVector{Npg}(P_raw)
+    W = SVector{Npg}(W_raw)
+
+    φP = SMatrix{Npg,Npg}([basis_functions(fe, P[i], P[j]) for i in 1:Npg, j in 1:Npg])
+    matW = SMatrix{Npg,Npg}([W[i]*W[j] for i in 1:Npg, j in 1:Npg])
+
+    # Expected solution ‖u‖_L2 = sqrt(1/900)
+    u(x, y) = x*(x-1)*y*(y-1)
+    result_expected = 1/30
+
+    # Test
+    X = (Δx/Deg):(Δx/Deg):(1-(Δx/Deg))
+    Y = (Δy/Deg):(Δy/Deg):(1-(Δy/Deg))
+    uₕ_coefs = vec(u.(X, Y'))
+    result = norm_L2(uₕ_coefs, dof_map, element_side_lengths, matW, φP)
+    @test result ≈ result_expected
+
+    # Test allocations
+    @test (@allocated norm_L2(uₕ_coefs, dof_map, element_side_lengths, matW, φP)) == 0
+end
+
 @testitem "norm_H01: AllSides(), Lagrange{1, 2}(), uₕ=ϕᵢ" begin
     using FEM: norm_H01, Lagrange, AllSides, DOFMap, basis_functions_derivatives
     using GaussQuadrature: legendre
